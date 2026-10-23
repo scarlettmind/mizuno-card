@@ -64,7 +64,7 @@ export default function Home() {
   const saveContact = async () => {
     let photoLines: string[] = [];
     try {
-      const response = await fetch("/mizuno-yuta.jpg");
+      const response = await fetch("/mizuno-yuta.jpg?v=21", { cache: "no-store" });
       if (!response.ok) throw new Error("Portrait unavailable");
       const bytes = new Uint8Array(await response.arrayBuffer());
       let binary = "";
