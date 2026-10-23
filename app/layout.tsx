@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import "./globals.css";
-import "./button-theme.css";
-import "./mobile-video-fix.css";
+import "./light.css";
+import "./light-override.css";
 
 export const metadata: Metadata = {
   title: "Yuta Mizuno — airweave Digital Card",

@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
 const profile = {
   name: "Yuta Mizuno",
   title: "Head of Business Development, Public Relations & President’s Office",
@@ -12,63 +10,16 @@ const profile = {
 };
 
 export default function Home() {
-  const introVideo = useRef<HTMLVideoElement>(null);
-  const backgroundVideo = useRef<HTMLVideoElement>(null);
-  const [transitioning, setTransitioning] = useState(false);
-  const [introDone, setIntroDone] = useState(false);
-  const [needsTap, setNeedsTap] = useState(false);
-
-  const resumePlayback = async () => {
-    const videos = [introVideo.current, backgroundVideo.current].filter(Boolean) as HTMLVideoElement[];
-    videos.forEach((video) => {
-      video.muted = true;
-      video.defaultMuted = true;
-      video.setAttribute("muted", "");
-      video.setAttribute("playsinline", "");
-      video.setAttribute("webkit-playsinline", "");
-    });
-    const activeVideo = introVideo.current ?? backgroundVideo.current;
-    const results = activeVideo ? await Promise.allSettled([activeVideo.play()]) : [];
-    setNeedsTap(results.every((result) => result.status === "rejected"));
-  };
-
-  useEffect(() => {
-    void resumePlayback();
-    const fallback = window.setTimeout(beginTransition, 2550);
-    const playbackCheck = window.setTimeout(() => {
-      if (introVideo.current?.paused && backgroundVideo.current?.paused) setNeedsTap(true);
-    }, 900);
-    return () => {
-      window.clearTimeout(fallback);
-      window.clearTimeout(playbackCheck);
-    };
-  // The fallback deliberately runs once on initial load.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const beginTransition = () => {
-    if (transitioning) return;
-    setTransitioning(true);
-    if (backgroundVideo.current) {
-      backgroundVideo.current.currentTime = 0;
-      void backgroundVideo.current.play().catch(() => setNeedsTap(true));
-    }
-    window.setTimeout(() => setIntroDone(true), 650);
-  };
-
-  const checkIntro = (event: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = event.currentTarget;
-    if (video.duration - video.currentTime < 0.42) beginTransition();
-  };
-
   const saveContact = async () => {
     let photoLines: string[] = [];
     try {
-      const response = await fetch("/mizuno-yuta.jpg?v=21", { cache: "no-store" });
+      const response = await fetch("/mizuno-yuta.jpg", { cache: "no-store" });
       if (!response.ok) throw new Error("Portrait unavailable");
       const bytes = new Uint8Array(await response.arrayBuffer());
       let binary = "";
-      for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      }
       const encoded = btoa(binary);
       const prefix = "PHOTO;ENCODING=b;TYPE=JPEG:";
       const firstChunkLength = 75 - prefix.length;
@@ -76,66 +27,62 @@ export default function Home() {
       for (let i = firstChunkLength; i < encoded.length; i += 74) {
         photoLines.push(` ${encoded.slice(i, i + 74)}`);
       }
-    } catch { /* Contact still saves if the portrait cannot be loaded. */ }
+    } catch { /* The contact still saves if the portrait cannot be loaded. */ }
+
     const card = [
-      "BEGIN:VCARD",
-      "VERSION:3.0",
-      `FN:${profile.name}`,
-      "N:Mizuno;Yuta;;;",
-      `ORG:${profile.company}`,
-      `TITLE:${profile.title}`,
-      `TEL;TYPE=CELL:${profile.phone}`,
-      `EMAIL;TYPE=INTERNET:${profile.email}`,
-      `URL:${profile.website}`,
-      ...photoLines,
-      "END:VCARD",
-      "",
+      "BEGIN:VCARD", "VERSION:3.0", `FN:${profile.name}`, "N:Mizuno;Yuta;;;",
+      `ORG:${profile.company}`, `TITLE:${profile.title}`,
+      `TEL;TYPE=CELL:${profile.phone}`, `EMAIL;TYPE=INTERNET,WORK:${profile.email}`,
+      `URL;TYPE=WORK:${profile.website}`, ...photoLines, "END:VCARD", "",
     ].join("\r\n");
     const url = URL.createObjectURL(new Blob([card], { type: "text/vcard;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = "Yuta-Mizuno.vcf";
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 500);
   };
 
   const fluidPress = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const button = event.currentTarget;
-    const wave = button.querySelector<HTMLElement>(".tap-wave");
+    const wave = event.currentTarget.querySelector<HTMLElement>(".ripple");
     if (!wave) return;
-    const rect = button.getBoundingClientRect();
-    wave.style.setProperty("--tap-x", `${event.clientX - rect.left}px`);
-    wave.style.setProperty("--tap-y", `${event.clientY - rect.top}px`);
+    const rect = event.currentTarget.getBoundingClientRect();
+    wave.style.setProperty("--x", `${event.clientX - rect.left}px`);
+    wave.style.setProperty("--y", `${event.clientY - rect.top}px`);
     wave.classList.remove("play");
     window.requestAnimationFrame(() => wave.classList.add("play"));
-    window.setTimeout(() => wave.classList.remove("play"), 650);
   };
 
   return (
-    <main className={`identity ${transitioning ? "is-transitioning" : ""} ${introDone ? "is-ready" : ""}`}>
-      <video ref={backgroundVideo} className="video background-video" muted playsInline loop preload="metadata" disablePictureInPicture aria-hidden="true">
-        <source media="(max-width: 700px) and (orientation: portrait)" src="/airweave-loop-mobile.mp4?v=17" type="video/mp4" />
-        <source src="/airweave-loop.mp4?v=17" type="video/mp4" />
-      </video>
-      {!introDone && <video ref={introVideo} className="video intro-video" autoPlay muted playsInline preload="auto" disablePictureInPicture onCanPlay={() => void resumePlayback()} onTimeUpdate={checkIntro} onEnded={beginTransition} aria-hidden="true">
-        <source media="(max-width: 700px) and (orientation: portrait)" src="/airweave-intro-mobile.mp4?v=17" type="video/mp4" />
-        <source src="/airweave-intro.mp4?v=17" type="video/mp4" />
-      </video>}
-      <div className="video-shade" />
+    <main className="card" aria-label="Yuta Mizuno digital business card">
+      <div className="background" aria-hidden="true" />
+      <div className="flow flow-a" aria-hidden="true" />
+      <div className="flow flow-b" aria-hidden="true" />
+      <div className="shade" aria-hidden="true" />
 
-      {needsTap && <button className="play-gate" onClick={() => void resumePlayback()}><i /> TAP TO PLAY</button>}
-
-      <img className="intro-wordmark" src="/airweave-official-logo.png" alt="" aria-hidden="true" />
-      <header><img className="wordmark" src="/airweave-official-logo.png" alt="airweave" /></header>
-
-      <section className="identity-content">
-        <div className="person">
-          <h1>Yuta <span>Mizuno</span></h1>
-          <p className="role">Head of Business Development, Public Relations &amp; President’s Office</p>
+      <section className="intro" aria-hidden="true">
+        <div className="fiber-mark">
+          <svg className="fibers" viewBox="0 0 520 160" role="presentation">
+            <path d="M22 92C112 18 173 137 259 79S408 25 498 78" />
+            <path d="M25 111C117 36 190 151 276 91S414 42 494 60" />
+            <path d="M32 68C125 6 182 115 248 66S393 8 488 91" />
+          </svg>
+          <img src="/airweave-official-logo.png" alt="" />
         </div>
-        <div className="actions">
-          <button onPointerDown={fluidPress} onClick={saveContact}><span>SAVE CONTACT</span><svg className="action-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v15m0 0-5-5m5 5 5-5" /></svg><i className="tap-wave" /></button>
+      </section>
+
+      <header className="brand"><img src="/airweave-official-logo.png" alt="airweave" /></header>
+
+      <section className="content">
+        <div className="identity">
+          <h1><span>Yuta</span> Mizuno</h1>
+          <p>Head of Business Development,<br className="mobile-break" /> Public Relations &amp; President’s Office</p>
         </div>
+        <button className="save" type="button" onPointerDown={fluidPress} onClick={saveContact}>
+          <span>SAVE CONTACT</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v15m0 0-5-5m5 5 5-5" /></svg>
+          <i className="ripple" aria-hidden="true" />
+        </button>
       </section>
     </main>
   );
